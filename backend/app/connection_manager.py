@@ -17,15 +17,15 @@ class ConnectionManager:
             if not self.active_connections[document_id]:
                 del self.active_connections[document_id]
 
-    async def send_to_one(self, websocket: WebSocket, data: bytes):
-        await websocket.send_bytes(data)
-
-    async def broadcast(self, document_id: str, data: bytes, sender: WebSocket):
-        if document_id not in self.active_connections:
-            return
-        for connection in self.active_connections[document_id]:
+    async def broadcast_bytes(self, document_id: str, data: bytes, sender: WebSocket):
+        for connection in self.active_connections.get(document_id, []):
             if connection != sender:
                 await connection.send_bytes(data)
+
+    async def broadcast_text(self, document_id: str, text: str, sender: WebSocket | None = None):
+        for connection in self.active_connections.get(document_id, []):
+            if sender is None or connection != sender:
+                await connection.send_text(text)
 
     def connection_count(self, document_id: str) -> int:
         return len(self.active_connections.get(document_id, []))
