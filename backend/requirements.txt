@@ -4,3 +4,8 @@ websockets
 
 pycrdt
 redis
+
+sqlalchemy
+psycopg2-binary 
+alembic 
+python-dotenv

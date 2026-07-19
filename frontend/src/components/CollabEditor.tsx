@@ -47,7 +47,10 @@ export default function CollabEditor({ documentId }: { documentId: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ history: false }),
-      Collaboration.configure({ document: ydoc }),
+      Collaboration.configure({
+        document: ydoc,
+        field: "content",  
+      }),
     ],
   }, [ydoc]);
 
@@ -60,8 +63,10 @@ export default function CollabEditor({ documentId }: { documentId: string }) {
         <div style={{ display: "flex", gap: 4 }}>
           {peers.map((p) => (
             <span key={p.clientId} title={p.name}
-              style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: p.color,
-                color: "white", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              style={{
+                width: 20, height: 20, borderRadius: "50%", backgroundColor: p.color,
+                color: "white", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
               {p.name.slice(-2)}
             </span>
           ))}
