@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import asyncio
 from contextlib import asynccontextmanager
@@ -5,6 +8,7 @@ from fastapi import FastAPI, WebSocket
 from app.connection_manager import manager
 from app.document_manager import document_manager
 from app.presence_manager import presence_manager
+from app.routers import auth
 
 AUTOSAVE_INTERVAL_SECONDS = 15
 
@@ -24,12 +28,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Real-Time Collaborative Editor", lifespan=lifespan)
+app.include_router(auth.router)
 
 
 @app.get("/")
 def root():
     return {"message": "Collab editor relay is running"}
-
 
 @app.websocket("/ws/{document_id}")
 async def document_websocket(websocket: WebSocket, document_id: str):
