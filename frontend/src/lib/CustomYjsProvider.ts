@@ -14,12 +14,23 @@ export class CustomYjsProvider {
   public clientId: string;
   private peers: Map<string, PresenceData> = new Map();
   private onPresenceChange: PresenceHandler | null = null;
+  private onUnauthorized: () => void;
 
-  constructor(documentId: string, ydoc: Y.Doc, baseWsUrl: string, clientId: string) {
+  constructor(
+    documentId: string,
+    ydoc: Y.Doc,
+    baseWsUrl: string,
+    clientId: string,
+    token: string,
+    onUnauthorized: () => void
+  ) {
     this.ydoc = ydoc;
     this.clientId = clientId;
-    this.ws = new WebSocket(`${baseWsUrl}/ws/${documentId}`);
+    this.onUnauthorized = onUnauthorized;
+    this.ws = new WebSocket(`${baseWsUrl}/ws/${documentId}?token=${encodeURIComponent(token)}`);
     this.ws.binaryType = "arraybuffer";
+
+    this.ws.onopen = () => console.log(`Connected to document: ${documentId}`);
 
     this.ws.onmessage = (event: MessageEvent) => {
       if (typeof event.data === "string") {
@@ -30,7 +41,13 @@ export class CustomYjsProvider {
       }
     };
 
-    this.ws.onclose = () => console.log("Disconnected from document");
+    this.ws.onclose = (event: CloseEvent) => {
+      if (event.code === 4401) {
+        console.error("Unauthorized — token invalid or expired.");
+        this.onUnauthorized();
+      }
+      console.log("Disconnected from document");
+    };
 
     this.ydoc.on("update", (update: Uint8Array, origin: unknown) => {
       if (origin !== this && this.ws.readyState === WebSocket.OPEN) {

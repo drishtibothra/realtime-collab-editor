@@ -1,13 +1,17 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
 import json
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Query
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.connection_manager import manager
 from app.document_manager import document_manager
 from app.presence_manager import presence_manager
+from app.core.security import decode_token
 from app.routers import auth
 
 AUTOSAVE_INTERVAL_SECONDS = 15
@@ -28,6 +32,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Real-Time Collaborative Editor", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth.router)
 
 
@@ -35,8 +48,16 @@ app.include_router(auth.router)
 def root():
     return {"message": "Collab editor relay is running"}
 
+
 @app.websocket("/ws/{document_id}")
-async def document_websocket(websocket: WebSocket, document_id: str):
+async def document_websocket(websocket: WebSocket, document_id: str, token: str = Query(...)):
+    payload = decode_token(token)
+    if payload is None:
+        await websocket.close(code=4401)  # custom code = unauthorized
+        return
+
+    user_email = payload.get("email", "unknown")
+
     await manager.connect(document_id, websocket)
     client_id: str | None = None
 
@@ -53,8 +74,6 @@ async def document_websocket(websocket: WebSocket, document_id: str):
         while True:
             message = await websocket.receive()
 
-            # The client disconnected — raw .receive() reports this as a
-            # message, NOT an exception, unlike receive_text()/receive_bytes().
             if message["type"] == "websocket.disconnect":
                 break
 
@@ -64,10 +83,10 @@ async def document_websocket(websocket: WebSocket, document_id: str):
                 await manager.broadcast_bytes(document_id, update, sender=websocket)
 
             elif message.get("text") is not None:
-                payload = json.loads(message["text"])
-                if payload.get("type") == "presence":
-                    client_id = payload["clientId"]
-                    await presence_manager.upsert(document_id, client_id, payload)
+                payload_data = json.loads(message["text"])
+                if payload_data.get("type") == "presence":
+                    client_id = payload_data["clientId"]
+                    await presence_manager.upsert(document_id, client_id, payload_data)
                     await manager.broadcast_text(document_id, message["text"], sender=websocket)
 
     finally:
