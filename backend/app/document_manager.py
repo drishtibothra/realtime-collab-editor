@@ -39,12 +39,32 @@ class DocumentManager:
         if not doc:
             print(f"[PERSIST] No in-memory doc found for '{document_id}' — nothing to save.")
             return
-        print(f"[DEBUG] Doc keys: {list(doc.keys())}")  
-        state = doc.get_update()
+
+        print("\n========== DOCUMENT DEBUG ==========")
+
+        print("Keys:", list(doc.keys()))
+
+        for key in doc.keys():
+            value = doc[key]
+            print(f"{key} -> {type(value)}")
+            print(value)
+
+        print("===================================\n")
+
         preview = str(doc["content"])
-        print(f"[PERSIST] Saving '{document_id}' — content preview: {preview!r}, state size: {len(state)} bytes")
-        await asyncio.to_thread(save_snapshot_sync, document_id, state, preview)
-        print(f"[PERSIST] Save call completed for '{document_id}'")
+        state = doc.get_update()
+
+        print(f"[PERSIST] Preview: {preview!r}")
+        print(f"[PERSIST] State size: {len(state)} bytes")
+
+        await asyncio.to_thread(
+            save_snapshot_sync,
+            document_id,
+            state,
+            preview,
+        )
+
+        print("[PERSIST] Saved successfully")
 
     def evict(self, document_id: str):
         self.documents.pop(document_id, None)
